@@ -1,152 +1,203 @@
 'use client';
+
+import { useRef, useState, useLayoutEffect, useEffect } from 'react'; // Import useEffect
 import Image from 'next/image';
 import { motion, useScroll, useTransform } from 'framer-motion';
-import { useRef, useState, useEffect } from 'react';
-import { Home as HomeIcon, Mail, Users } from 'lucide-react';
-import LoadingScreen from '../components/LoadingScreen';
+
+// Import icons from lucide-react
+import { Home as HomeIcon, Mail, Info } from 'lucide-react'; // Renaming Home to HomeIcon to avoid conflict
 
 export default function Home() {
-  const ref = useRef(null);
   const [isLoaded, setIsLoaded] = useState(false);
+  // New state variables to track individual image loading
+  const [skyLoaded, setSkyLoaded] = useState(false);
+  const [mountainsLoaded, setMountainsLoaded] = useState(false);
+  const [foregroundLoaded, setForegroundLoaded] = useState(false);
 
-  // Use a ref to store the scrollYProgress motion value directly
-  // This allows us to set its value programmatically
+  const ref = useRef(null); // This ref will now cover the entire scrollable parallax height
+
   const { scrollYProgress } = useScroll({
     target: ref,
-    offset: ['start start', 'end end'],
+    offset: ['start start', 'end end'], // Tracks scroll progress within the 1200px div
   });
 
-  // Set scroll restoration to manual globally as early as possible
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      window.history.scrollRestoration = 'manual';
-    }
+  useLayoutEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'auto' });
+    // isLoaded is initially false, so the loading screen appears.
+    // It will be set to true once all images are loaded via the useEffect below.
   }, []);
 
-  // Simulate loading and then set isLoaded to true
+  // Use useEffect to check when all images are loaded
   useEffect(() => {
-    const timer = setTimeout(() => {
+    if (skyLoaded && mountainsLoaded && foregroundLoaded) {
       setIsLoaded(true);
-    }, 2500); // Simulate 2.5s load
-    return () => clearTimeout(timer);
-  }, []);
-
-  // Scroll to top AND reset scrollYProgress ONLY after the component is loaded and rendered
-  useEffect(() => {
-    if (isLoaded && typeof window !== 'undefined') {
-      window.scrollTo({ top: 0, behavior: 'auto' });
-      // Explicitly set scrollYProgress to 0 to ensure Framer Motion's internal state is correct
-      scrollYProgress.set(0);
-      console.log('Page loaded and scrolled to top. scrollYProgress set to 0.');
     }
-  }, [isLoaded, scrollYProgress]); // Add scrollYProgress to dependencies
+  }, [skyLoaded, mountainsLoaded, foregroundLoaded]);
 
-  const translateLayer4 = useTransform(scrollYProgress, [0, 1], ['0%', '-6%']);
-  const translateLayer1 = useTransform(scrollYProgress, [0, 1], ['0%', '-12%']);
-  const translateLayer3 = useTransform(scrollYProgress, [0, 1], ['0%', '-18%']);
-  const translateLayer2 = useTransform(scrollYProgress, [0, 1], ['0%', '-24%']);
-  const scaleLayer1 = useTransform(scrollYProgress, [0, 1], [1, 1.05]);
+  // --- Parallax Speeds and Transforms ---
+  const skyY = useTransform(scrollYProgress, [0, 1], ['0%', '-10%']);
+  const mountainsY = useTransform(scrollYProgress, [0, 1], ['0%', '-30%']);
+  const foregroundY = useTransform(scrollYProgress, [0, 1], ['0%', '-60%']);
 
-  const welcomeOpacity = useTransform(scrollYProgress, [0, 0.3], [1, 0]);
-  const welcomeTranslateY = useTransform(
+  const skyX = useTransform(scrollYProgress, [0, 1], ['0%', '5%']);
+  const mountainsX = useTransform(scrollYProgress, [0, 1], ['0%', '-10%']);
+  const foregroundX = useTransform(scrollYProgress, [0, 1], ['0%', '5%']);
+
+  // Text Fade and Vertical Movement for "Welcome"
+  const welcomeTextOpacity = useTransform(scrollYProgress, [0, 0.5], [1, 0]);
+  const welcomeTextY = useTransform(scrollYProgress, [0, 1], ['0%', '150%']);
+
+  // Controls for the "More content below..." text and the buttons
+  const contentSectionOpacity = useTransform(
     scrollYProgress,
-    [0, 0.3],
-    ['0px', '-40px']
+    [0.5, 0.9],
+    [0, 1]
   );
-  const buttonsOpacity = useTransform(scrollYProgress, [0.3, 0.6], [0, 1]);
-  const buttonsTranslateY = useTransform(
+  const contentSectionY = useTransform(
     scrollYProgress,
-    [0.3, 0.6],
-    ['30px', '0px']
+    [0.5, 1],
+    ['50px', '0px']
   );
 
-  const buttons = [
-    { label: 'Home', icon: <HomeIcon size={48} /> },
-    { label: 'Contact', icon: <Mail size={48} /> },
-    { label: 'About Us', icon: <Users size={48} /> },
-  ];
+  // Dark Overlay Transform
+  const darkOverlayOpacity = useTransform(scrollYProgress, [0, 1], [0, 0.6]);
 
-  if (!isLoaded) return <LoadingScreen />;
+  if (!isLoaded) {
+    return (
+      <div className='fixed inset-0 bg-[#c9af98] z-[9999] flex items-center justify-center flex-col gap-6'>
+        {/* Spinner */}
+        <div className='w-16 h-16 border-4 border-white border-t-transparent rounded-full animate-spin' />
+
+        {/* Fallback loading text */}
+        <p className='text-white text-xl font-semibold'>
+          Loading parallax scene...
+        </p>
+
+        {/* Actual preload images - use <img> instead of <Image> for reliable onLoad */}
+        <div className='hidden'>
+          <img
+            src='/parallax/sky1600.svg'
+            onLoad={() => setSkyLoaded(true)}
+            alt='Sky preload'
+          />
+          <img
+            src='/parallax/mountains1600.svg'
+            onLoad={() => setMountainsLoaded(true)}
+            alt='Mountains preload'
+          />
+          <img
+            src='/parallax/priekiskitassssss-01.svg'
+            onLoad={() => setForegroundLoaded(true)}
+            alt='Foreground preload'
+          />
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div ref={ref} className='relative h-[1000px] bg-black overflow-hidden'>
-      {/* Parallax Layers */}
+    <div ref={ref} className='relative h-[1200px] w-full overflow-hidden'>
+      {/* SKY Layer */}
       <motion.div
-        style={{ y: translateLayer4 }}
-        className='absolute top-0 left-0 w-full h-[1150px] z-10'
+        style={{ y: skyY, x: skyX }}
+        className='absolute top-[-500px] left-1/2 w-[3840px] h-[1600px] -translate-x-1/2 z-10'
       >
         <Image
-          src='/parallax/layer4.svg'
-          alt='Layer 4'
+          src='/parallax/sky1600.svg'
+          alt='Sky'
           fill
           className='object-cover pointer-events-none'
         />
-      </motion.div>
-
-      <motion.div
-        style={{ y: translateLayer1, scale: scaleLayer1 }}
-        className='absolute top-0 left-0 w-full h-[1150px] z-40 origin-bottom'
-      >
-        <Image
-          src='/parallax/layer1-01-01-01.svg'
-          alt='Layer 1'
-          fill
-          className='object-cover pointer-events-none'
+        {/* Dark overlay for Sky */}
+        <motion.div
+          style={{ opacity: darkOverlayOpacity }}
+          className='absolute inset-0 bg-black'
         />
       </motion.div>
 
+      {/* MOUNTAINS Layer (your prominent Mountain Range or Main Building) */}
       <motion.div
-        style={{ y: translateLayer3 }}
-        className='absolute top-0 left-0 w-full h-[1150px] z-20'
+        style={{ y: mountainsY, x: mountainsX }}
+        className='absolute top-[100px] left-1/2 w-[2880px] h-[1600px] -translate-x-1/2 z-40'
       >
         <Image
-          src='/parallax/layer3.svg'
-          alt='Layer 3'
+          src='/parallax/mountains1600.svg'
+          alt='Mountain Range or Main Building'
           fill
           className='object-cover pointer-events-none'
         />
-      </motion.div>
-
-      <motion.div
-        style={{ y: translateLayer2 }}
-        className='absolute top-0 left-0 w-full h-[1150px] z-30'
-      >
-        <Image
-          src='/parallax/layer2.svg'
-          alt='Layer 2'
-          fill
-          className='object-cover pointer-events-none'
+        {/* Dark overlay for Mountains */}
+        <motion.div
+          style={{ opacity: darkOverlayOpacity }}
+          className='absolute inset-0 bg-black'
         />
       </motion.div>
 
-      {/* Welcome Section */}
+      {/* Welcome Text - Fades out and now hides under mountains */}
       <motion.div
-        style={{ opacity: welcomeOpacity, y: welcomeTranslateY }}
-        className='absolute top-[60px] w-full text-center z-50 px-4'
+        className='absolute top-[20vh] w-full z-30 text-center pointer-events-none px-4' // Added px-4 directly
+        style={{ opacity: welcomeTextOpacity, y: welcomeTextY }}
       >
-        <h1 className='text-white text-5xl sm:text-6xl md:text-8xl font-extrabold drop-shadow-lg'>
-          Welcome!
+        <h1 className='text-white text-5xl md:text-7xl font-bold drop-shadow-lg'>
+          Welcome
         </h1>
-        <p className='mt-2 text-white/80 text-base sm:text-lg md:text-xl'>
-          Scroll down to see the depth
+        <p className='mt-4 text-white/90 text-lg md:text-xl'>
+          Scroll down to feel the depth of this parallax scene!
         </p>
       </motion.div>
 
-      {/* Responsive Button Section */}
+      {/* FOREGROUND Layer (your Dome Building, Road, or Ski Slope) */}
       <motion.div
-        style={{ opacity: buttonsOpacity, y: buttonsTranslateY }}
-        className='absolute bottom-[100px] w-full z-50 flex flex-col sm:flex-row justify-center items-center gap-6 px-4'
+        style={{ y: foregroundY, x: foregroundX }}
+        className='absolute top-[650px] left-1/2 w-[2300px] h-[1600px] -translate-x-1/2 z-50'
       >
-        {buttons.map(({ label, icon }) => (
-          <button
-            key={label}
-            className='backdrop-blur-lg bg-white/10 border border-white/20 text-white px-6 py-6 sm:px-8 sm:py-8 rounded-2xl shadow-2xl hover:bg-white/20 transition text-xl sm:text-2xl w-full sm:min-w-[240px] sm:min-h-[240px] max-w-[300px] flex flex-col items-center justify-center gap-3'
-          >
-            {icon}
-            {label}
-          </button>
-        ))}
+        <Image
+          src='/parallax/priekiskitassssss-01.svg'
+          alt='Foreground Scene (Dome, Road, or Ski Slope)'
+          fill
+          className='object-cover pointer-events-none'
+        />
       </motion.div>
+
+      {/* Content Section with Glassmorphism Buttons - appears within the parallax scroll */}
+      <motion.div
+        className='absolute bottom-17 w-full z-60 flex flex-col items-center justify-center gap-8 p-4'
+        style={{ opacity: contentSectionOpacity, y: contentSectionY }}
+      >
+        {/* Buttons Container */}
+        <div className='flex flex-wrap justify-center gap-6'>
+          {/* Home Button */}
+          <button className='backdrop-blur-lg bg-white/10 border border-white/20 rounded-xl p-4 text-white shadow-lg flex flex-col items-center justify-center gap-2 cursor-pointer hover:bg-white/20 transition-colors w-64 h-64'>
+            <HomeIcon className='w-16 h-16' />
+            <span className='text-lg font-semibold'>Home</span>
+          </button>
+
+          {/* Contact Button */}
+          <button className='backdrop-blur-lg bg-white/10 border border-white/20 rounded-xl p-4 text-white shadow-lg flex flex-col items-center justify-center gap-2 cursor-pointer hover:bg-white/20 transition-colors w-64 h-64'>
+            <Mail className='w-16 h-16' />
+            <span className='text-lg font-semibold'>Contact</span>
+          </button>
+
+          {/* About Us Button */}
+          <button className='backdrop-blur-lg bg-white/10 border border-white/20 rounded-xl p-4 text-white shadow-lg flex flex-col items-center justify-center gap-2 cursor-pointer hover:bg-white/20 transition-colors w-64 h-64'>
+            <Info className='w-16 h-16' />
+            <span className='text-lg font-semibold'>About Us</span>
+          </button>
+        </div>
+      </motion.div>
+      {/* Footer Branding */}
+      <div className='absolute bottom-2 w-full z-60 flex flex-col items-center justify-center text-white text-sm opacity-90 '>
+        <Image
+          src='/42px.png'
+          alt='LB Visible Logo'
+          width={42}
+          height={42}
+          className='mb-1'
+        />
+        <p className='text-xs sm:text-sm text-center'>
+          Made by Let’s Be Visible
+        </p>
+      </div>
     </div>
   );
 }
