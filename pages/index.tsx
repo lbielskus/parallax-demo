@@ -1,115 +1,152 @@
-import Image from "next/image";
-import { Geist, Geist_Mono } from "next/font/google";
-
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
+'use client';
+import Image from 'next/image';
+import { motion, useScroll, useTransform, useMotionValue } from 'framer-motion'; // Import useMotionValue
+import { useRef, useState, useEffect } from 'react';
+import { Home as HomeIcon, Mail, Users } from 'lucide-react';
+import LoadingScreen from '../components/LoadingScreen';
 
 export default function Home() {
+  const ref = useRef(null);
+  const [isLoaded, setIsLoaded] = useState(false);
+
+  // Use a ref to store the scrollYProgress motion value directly
+  // This allows us to set its value programmatically
+  const { scrollYProgress } = useScroll({
+    target: ref,
+    offset: ['start start', 'end end'],
+  });
+
+  // Set scroll restoration to manual globally as early as possible
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      window.history.scrollRestoration = 'manual';
+    }
+  }, []);
+
+  // Simulate loading and then set isLoaded to true
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setIsLoaded(true);
+    }, 2500); // Simulate 2.5s load
+    return () => clearTimeout(timer);
+  }, []);
+
+  // Scroll to top AND reset scrollYProgress ONLY after the component is loaded and rendered
+  useEffect(() => {
+    if (isLoaded && typeof window !== 'undefined') {
+      window.scrollTo({ top: 0, behavior: 'auto' });
+      // Explicitly set scrollYProgress to 0 to ensure Framer Motion's internal state is correct
+      scrollYProgress.set(0);
+      console.log('Page loaded and scrolled to top. scrollYProgress set to 0.');
+    }
+  }, [isLoaded, scrollYProgress]); // Add scrollYProgress to dependencies
+
+  const translateLayer4 = useTransform(scrollYProgress, [0, 1], ['0%', '-6%']);
+  const translateLayer1 = useTransform(scrollYProgress, [0, 1], ['0%', '-12%']);
+  const translateLayer3 = useTransform(scrollYProgress, [0, 1], ['0%', '-18%']);
+  const translateLayer2 = useTransform(scrollYProgress, [0, 1], ['0%', '-24%']);
+  const scaleLayer1 = useTransform(scrollYProgress, [0, 1], [1, 1.05]);
+
+  const welcomeOpacity = useTransform(scrollYProgress, [0, 0.3], [1, 0]);
+  const welcomeTranslateY = useTransform(
+    scrollYProgress,
+    [0, 0.3],
+    ['0px', '-40px']
+  );
+  const buttonsOpacity = useTransform(scrollYProgress, [0.3, 0.6], [0, 1]);
+  const buttonsTranslateY = useTransform(
+    scrollYProgress,
+    [0.3, 0.6],
+    ['30px', '0px']
+  );
+
+  const buttons = [
+    { label: 'Home', icon: <HomeIcon size={48} /> },
+    { label: 'Contact', icon: <Mail size={48} /> },
+    { label: 'About Us', icon: <Users size={48} /> },
+  ];
+
+  if (!isLoaded) return <LoadingScreen />;
+
   return (
-    <div
-      className={`${geistSans.className} ${geistMono.className} grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]`}
-    >
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
+    <div ref={ref} className='relative h-[1000px] bg-black overflow-hidden'>
+      {/* Parallax Layers */}
+      <motion.div
+        style={{ y: translateLayer4 }}
+        className='absolute top-0 left-0 w-full h-[1150px] z-10'
+      >
         <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
+          src='/parallax/layer4.svg'
+          alt='Layer 4'
+          fill
+          className='object-cover pointer-events-none'
         />
-        <ol className="list-inside list-decimal text-sm/6 text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-[family-name:var(--font-geist-mono)] font-semibold">
-              pages/index.tsx
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=default-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+      </motion.div>
+
+      <motion.div
+        style={{ y: translateLayer1, scale: scaleLayer1 }}
+        className='absolute top-0 left-0 w-full h-[1150px] z-40 origin-bottom'
+      >
+        <Image
+          src='/parallax/layer1-01-01-01.svg'
+          alt='Layer 1'
+          fill
+          className='object-cover pointer-events-none'
+        />
+      </motion.div>
+
+      <motion.div
+        style={{ y: translateLayer3 }}
+        className='absolute top-0 left-0 w-full h-[1150px] z-20'
+      >
+        <Image
+          src='/parallax/layer3.svg'
+          alt='Layer 3'
+          fill
+          className='object-cover pointer-events-none'
+        />
+      </motion.div>
+
+      <motion.div
+        style={{ y: translateLayer2 }}
+        className='absolute top-0 left-0 w-full h-[1150px] z-30'
+      >
+        <Image
+          src='/parallax/layer2.svg'
+          alt='Layer 2'
+          fill
+          className='object-cover pointer-events-none'
+        />
+      </motion.div>
+
+      {/* Welcome Section */}
+      <motion.div
+        style={{ opacity: welcomeOpacity, y: welcomeTranslateY }}
+        className='absolute top-[60px] w-full text-center z-50 px-4'
+      >
+        <h1 className='text-white text-5xl sm:text-6xl md:text-8xl font-extrabold drop-shadow-lg'>
+          Welcome!
+        </h1>
+        <p className='mt-2 text-white/80 text-base sm:text-lg md:text-xl'>
+          Scroll down to see the depth
+        </p>
+      </motion.div>
+
+      {/* Responsive Button Section */}
+      <motion.div
+        style={{ opacity: buttonsOpacity, y: buttonsTranslateY }}
+        className='absolute bottom-[100px] w-full z-50 flex flex-col sm:flex-row justify-center items-center gap-6 px-4'
+      >
+        {buttons.map(({ label, icon }) => (
+          <button
+            key={label}
+            className='backdrop-blur-lg bg-white/10 border border-white/20 text-white px-6 py-6 sm:px-8 sm:py-8 rounded-2xl shadow-2xl hover:bg-white/20 transition text-xl sm:text-2xl w-full sm:min-w-[240px] sm:min-h-[240px] max-w-[300px] flex flex-col items-center justify-center gap-3'
           >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=default-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
-        </div>
-      </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=default-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=default-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=default-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
+            {icon}
+            {label}
+          </button>
+        ))}
+      </motion.div>
     </div>
   );
 }
