@@ -1,40 +1,84 @@
 'use client';
 
-import { useRef, useState, useLayoutEffect, useEffect } from 'react'; // Import useEffect
+import { useRef, useState, useLayoutEffect, useEffect } from 'react';
 import Image from 'next/image';
 import { motion, useScroll, useTransform } from 'framer-motion';
-
-// Import icons from lucide-react
-import { Home as HomeIcon, Mail, Info } from 'lucide-react'; // Renaming Home to HomeIcon to avoid conflict
+import { Home as HomeIcon, Mail, Info } from 'lucide-react';
 
 export default function Home() {
   const [isLoaded, setIsLoaded] = useState(false);
-  // New state variables to track individual image loading
-  const [skyLoaded, setSkyLoaded] = useState(false);
-  const [mountainsLoaded, setMountainsLoaded] = useState(false);
-  const [foregroundLoaded, setForegroundLoaded] = useState(false);
+  const [loadedImagesCount, setLoadedImagesCount] = useState(0);
+  const totalImagesToPreload = 3;
 
-  const ref = useRef(null); // This ref will now cover the entire scrollable parallax height
+  const ref = useRef(null);
+  const initialScrollPerformedRef = useRef(false); // New ref to track initial scroll
 
-  const { scrollYProgress } = useScroll({
-    target: ref,
-    offset: ['start start', 'end end'], // Tracks scroll progress within the 1200px div
-  });
-
+  // --- Scroll Management ---
+  // Ensure scroll restoration is manual early on
   useLayoutEffect(() => {
-    window.scrollTo({ top: 0, behavior: 'auto' });
-    // isLoaded is initially false, so the loading screen appears.
-    // It will be set to true once all images are loaded via the useEffect below.
+    if (typeof window !== 'undefined') {
+      window.history.scrollRestoration = 'manual';
+    }
   }, []);
 
-  // Use useEffect to check when all images are loaded
+  // Use useEffect for operations that might involve DOM painting after render
   useEffect(() => {
-    if (skyLoaded && mountainsLoaded && foregroundLoaded) {
+    if (isLoaded && !initialScrollPerformedRef.current) {
+      // Small timeout to allow browser to finish initial layout after isLoaded is true
+      const scrollCorrectionTimeout = setTimeout(() => {
+        if (typeof window !== 'undefined') {
+          console.log('Performing scroll correction...');
+          // Scroll slightly down then immediately back to 0
+          // This can force a re-render of scroll position
+          window.scrollTo({ top: 1, behavior: 'auto' });
+          window.scrollTo({ top: 0, behavior: 'auto' });
+
+          // Also explicitly set for body/documentElement
+          document.body.scrollTop = 0;
+          document.documentElement.scrollTop = 0;
+
+          initialScrollPerformedRef.current = true; // Mark as performed
+          console.log(
+            'Scroll correction attempted. Current scrollY:',
+            window.scrollY
+          );
+        }
+      }, 100); // Increased to 100ms for more reliability
+
+      return () => clearTimeout(scrollCorrectionTimeout);
+    }
+  }, [isLoaded]); // Dependency on isLoaded
+
+  // --- Image Loading Logic ---
+  const handleImageLoad = () => {
+    setLoadedImagesCount((prevCount) => prevCount + 1);
+  };
+
+  useEffect(() => {
+    if (loadedImagesCount >= totalImagesToPreload) {
       setIsLoaded(true);
     }
-  }, [skyLoaded, mountainsLoaded, foregroundLoaded]);
+  }, [loadedImagesCount, totalImagesToPreload]);
 
-  // --- Parallax Speeds and Transforms ---
+  // Timeout failsafe for loading
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      if (!isLoaded) {
+        console.warn('Loading timeout. Forcing page display.');
+        setIsLoaded(true);
+      }
+    }, 5000);
+
+    return () => clearTimeout(timeout);
+  }, [isLoaded]);
+
+  // --- Framer Motion Scroll Transforms ---
+  // These calculations remain the same, they respond to scrollYProgress
+  const { scrollYProgress } = useScroll({
+    target: ref,
+    offset: ['start start', 'end end'],
+  });
+
   const skyY = useTransform(scrollYProgress, [0, 1], ['0%', '-10%']);
   const mountainsY = useTransform(scrollYProgress, [0, 1], ['0%', '-30%']);
   const foregroundY = useTransform(scrollYProgress, [0, 1], ['0%', '-60%']);
@@ -43,52 +87,54 @@ export default function Home() {
   const mountainsX = useTransform(scrollYProgress, [0, 1], ['0%', '-10%']);
   const foregroundX = useTransform(scrollYProgress, [0, 1], ['0%', '5%']);
 
-  // Text Fade and Vertical Movement for "Welcome"
-  const welcomeTextOpacity = useTransform(scrollYProgress, [0, 0.5], [1, 0]);
+  const welcomeTextOpacity = useTransform(scrollYProgress, [0, 0.4], [1, 0]);
   const welcomeTextY = useTransform(scrollYProgress, [0, 1], ['0%', '150%']);
 
-  // Controls for the "More content below..." text and the buttons
   const contentSectionOpacity = useTransform(
     scrollYProgress,
-    [0.5, 0.9],
+    [0.15, 0.4],
     [0, 1]
   );
   const contentSectionY = useTransform(
     scrollYProgress,
-    [0.5, 1],
-    ['50px', '0px']
+    [0.15, 0.4],
+    ['80px', '0px']
   );
 
-  // Dark Overlay Transform
   const darkOverlayOpacity = useTransform(scrollYProgress, [0, 1], [0, 0.6]);
 
+  // --- Conditional Rendering for Loading Screen vs. Main Content ---
   if (!isLoaded) {
     return (
       <div className='fixed inset-0 bg-[#c9af98] z-[9999] flex items-center justify-center flex-col gap-6'>
-        {/* Spinner */}
         <div className='w-16 h-16 border-4 border-white border-t-transparent rounded-full animate-spin' />
-
-        {/* Fallback loading text */}
         <p className='text-white text-xl font-semibold'>
           Loading parallax scene...
         </p>
-
-        {/* Actual preload images - use <img> instead of <Image> for reliable onLoad */}
-        <div className='hidden'>
-          <img
+        <div className='absolute -left-[9999px] top-0'>
+          <Image
             src='/parallax/sky1600.svg'
-            onLoad={() => setSkyLoaded(true)}
-            alt='Sky preload'
+            alt='Sky Preload'
+            width={1}
+            height={1}
+            onLoad={handleImageLoad}
+            priority
           />
-          <img
+          <Image
             src='/parallax/mountains1600.svg'
-            onLoad={() => setMountainsLoaded(true)}
-            alt='Mountains preload'
+            alt='Mountains Preload'
+            width={1}
+            height={1}
+            onLoad={handleImageLoad}
+            priority
           />
-          <img
+          <Image
             src='/parallax/priekiskitassssss-01.svg'
-            onLoad={() => setForegroundLoaded(true)}
-            alt='Foreground preload'
+            alt='Foreground Preload'
+            width={1}
+            height={1}
+            onLoad={handleImageLoad}
+            priority
           />
         </div>
       </div>
@@ -108,34 +154,32 @@ export default function Home() {
           fill
           className='object-cover pointer-events-none'
         />
-        {/* Dark overlay for Sky */}
         <motion.div
           style={{ opacity: darkOverlayOpacity }}
           className='absolute inset-0 bg-black'
         />
       </motion.div>
 
-      {/* MOUNTAINS Layer (your prominent Mountain Range or Main Building) */}
+      {/* MOUNTAINS Layer */}
       <motion.div
         style={{ y: mountainsY, x: mountainsX }}
         className='absolute top-[100px] left-1/2 w-[2880px] h-[1600px] -translate-x-1/2 z-40'
       >
         <Image
           src='/parallax/mountains1600.svg'
-          alt='Mountain Range or Main Building'
+          alt='Mountains'
           fill
           className='object-cover pointer-events-none'
         />
-        {/* Dark overlay for Mountains */}
         <motion.div
           style={{ opacity: darkOverlayOpacity }}
           className='absolute inset-0 bg-black'
         />
       </motion.div>
 
-      {/* Welcome Text - Fades out and now hides under mountains */}
+      {/* Welcome Text */}
       <motion.div
-        className='absolute top-[20vh] w-full z-30 text-center pointer-events-none px-4' // Added px-4 directly
+        className='absolute top-[20vh] w-full z-30 text-center pointer-events-none px-4'
         style={{ opacity: welcomeTextOpacity, y: welcomeTextY }}
       >
         <h1 className='text-white text-5xl md:text-7xl font-bold drop-shadow-lg'>
@@ -146,47 +190,54 @@ export default function Home() {
         </p>
       </motion.div>
 
-      {/* FOREGROUND Layer (your Dome Building, Road, or Ski Slope) */}
+      {/* FOREGROUND Layer */}
       <motion.div
         style={{ y: foregroundY, x: foregroundX }}
         className='absolute top-[650px] left-1/2 w-[2300px] h-[1600px] -translate-x-1/2 z-50'
       >
         <Image
           src='/parallax/priekiskitassssss-01.svg'
-          alt='Foreground Scene (Dome, Road, or Ski Slope)'
+          alt='Foreground'
           fill
           className='object-cover pointer-events-none'
         />
       </motion.div>
 
-      {/* Content Section with Glassmorphism Buttons - appears within the parallax scroll */}
+      {/* Buttons */}
       <motion.div
-        className='absolute bottom-17 w-full z-60 flex flex-col items-center justify-center gap-8 p-4'
+        className='absolute bottom-28 w-full z-60 flex flex-col items-center justify-center gap-8 p-4'
         style={{ opacity: contentSectionOpacity, y: contentSectionY }}
       >
-        {/* Buttons Container */}
         <div className='flex flex-wrap justify-center gap-6'>
-          {/* Home Button */}
-          <button className='backdrop-blur-lg bg-white/10 border border-white/20 rounded-xl p-4 text-white shadow-lg flex flex-col items-center justify-center gap-2 cursor-pointer hover:bg-white/20 transition-colors w-64 h-64'>
-            <HomeIcon className='w-16 h-16' />
-            <span className='text-lg font-semibold'>Home</span>
-          </button>
-
-          {/* Contact Button */}
-          <button className='backdrop-blur-lg bg-white/10 border border-white/20 rounded-xl p-4 text-white shadow-lg flex flex-col items-center justify-center gap-2 cursor-pointer hover:bg-white/20 transition-colors w-64 h-64'>
-            <Mail className='w-16 h-16' />
-            <span className='text-lg font-semibold'>Contact</span>
-          </button>
-
-          {/* About Us Button */}
-          <button className='backdrop-blur-lg bg-white/10 border border-white/20 rounded-xl p-4 text-white shadow-lg flex flex-col items-center justify-center gap-2 cursor-pointer hover:bg-white/20 transition-colors w-64 h-64'>
-            <Info className='w-16 h-16' />
-            <span className='text-lg font-semibold'>About Us</span>
-          </button>
+          {[
+            {
+              label: 'Home',
+              icon: <HomeIcon className='w-12 h-12 sm:w-14 sm:h-14' />,
+            },
+            {
+              label: 'Contact',
+              icon: <Mail className='w-12 h-12 sm:w-14 sm:h-14' />,
+            },
+            {
+              label: 'About Us',
+              icon: <Info className='w-12 h-12 sm:w-14 sm:h-14' />,
+            },
+          ].map(({ label, icon }) => (
+            <button
+              key={label}
+              className='backdrop-blur-lg bg-white/10 border border-white/20 rounded-xl p-4 text-white shadow-lg flex flex-col items-center justify-center gap-2 cursor-pointer hover:bg-white/20 transition-colors w-44 h-44 sm:w-56 sm:h-56 md:w-64 md:h-64'
+            >
+              {icon}
+              <span className='text-base sm:text-lg font-semibold'>
+                {label}
+              </span>
+            </button>
+          ))}
         </div>
       </motion.div>
+
       {/* Footer Branding */}
-      <div className='absolute bottom-2 w-full z-60 flex flex-col items-center justify-center text-white text-sm opacity-90 '>
+      <div className='absolute bottom-4 w-full z-60 flex flex-col items-center justify-center text-white text-sm opacity-90'>
         <Image
           src='/42px.png'
           alt='LB Visible Logo'
